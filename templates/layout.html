@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Finance App</title>
+</head>
+<body>
+  <header>
+    <h2 style="text-align:center;">💰 Personal Finance App</h2>
+    <nav style="text-align:center;">
+      <a href="/">Dashboard</a> |
+      <a href="/add_expense">Add Expense</a> |
+      <a href="/investments">Investments</a>
+    </nav>
+    <hr />
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

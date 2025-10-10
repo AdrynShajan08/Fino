@@ -1,0 +1,54 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container" style="max-width:600px;margin:auto;">
+  <h2 style="text-align:center;">➕ Add Expense</h2>
+
+  <form id="expenseForm" style="margin-top:20px;">
+    <label>Date:</label><br>
+    <input type="date" name="date" required><br><br>
+
+    <label>Amount (₹):</label><br>
+    <input type="number" name="amount" step="0.01" required><br><br>
+
+    <label>Category:</label><br>
+    <select name="category" required>
+      <option value="utilities">Utilities</option>
+      <option value="rent">Rent</option>
+      <option value="dining">Dining</option>
+      <option value="turf">Turf</option>
+      <option value="entertainment">Entertainment</option>
+      <option value="charity">Charity</option>
+      <option value="groceries">Groceries</option>
+      <option value="shopping">Shopping</option>
+      <option value="other">Other</option>
+    </select><br><br>
+
+    <label>Description:</label><br>
+    <input type="text" name="description" placeholder="(optional)"><br><br>
+
+    <button type="submit">💾 Save Expense</button>
+    <button type="button" id="voiceBtn">🎙️ Add by Voice</button>
+  </form>
+
+  <p id="status" style="text-align:center;margin-top:15px;color:green;"></p>
+</div>
+
+<script src="{{ url_for('static', filename='js/voice_input.js') }}"></script>
+<script>
+  document.getElementById("expenseForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+
+    const res = await fetch("/add_expense", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+
+    const json = await res.json();
+    document.getElementById("status").innerText = json.message;
+    e.target.reset();
+  });
+</script>
+{% endblock %}
