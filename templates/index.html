@@ -1,0 +1,146 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container" style="max-width:1000px;margin:auto;">
+  <h2 style="text-align:center;">📊 Finance Dashboard</h2>
+
+  <!-- Total Spend -->
+  <div style="text-align:center;margin-top:20px;">
+    <h3 id="totalSpend">Total Spent: ₹0</h3>
+  </div>
+
+  <!-- Charts Grid -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:30px;">
+    <div>
+      <h4 style="text-align:center;">💸 Spend by Category</h4>
+      <canvas id="spendChart"></canvas>
+    </div>
+
+    <div>
+      <h4 style="text-align:center;">📈 Month-on-Month Trend</h4>
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Investments Section -->
+  <div style="margin-top:50px;text-align:center;">
+    <h4>💹 Investment Allocation</h4>
+    <canvas id="investChart" style="max-width:500px;margin:auto;"></canvas>
+  </div>
+
+  <!-- Table -->
+  <h4 style="text-align:center;margin-top:40px;">🧾 Category Summary</h4>
+  <table border="1" cellpadding="8" style="margin:auto;width:70%;text-align:center;">
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Total (₹)</th>
+      </tr>
+    </thead>
+    <tbody id="summaryTable">
+      <tr><td colspan="2">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+async function loadSummary() {
+  const res = await fetch('/get_summary');
+  const data = await res.json();
+
+  const labels = data.map(item => item.category);
+  const values = data.map(item => item.total);
+
+  const total = values.reduce((a, b) => a + b, 0);
+  document.getElementById('totalSpend').innerText = `Total Spent: ₹${total.toFixed(2)}`;
+
+  const tableBody = document.getElementById('summaryTable');
+  tableBody.innerHTML = '';
+  data.forEach(row => {
+    tableBody.innerHTML += `<tr><td>${row.category}</td><td>${row.total.toFixed(2)}</td></tr>`;
+  });
+
+  new Chart(document.getElementById('spendChart'), {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Spending by Category',
+        data: values,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+}
+
+// Listen for finance updates
+const channel = new BroadcastChannel("finance_updates");
+channel.onmessage = (event) => {
+  if (event.data === "data_updated") {
+    console.log("Detected update — refreshing charts...");
+    loadSummary();
+    loadInvestments();
+  }
+};
+
+async function loadTrend() {
+  const res = await fetch('/get_monthly_trend');
+  const data = await res.json();
+
+  const months = data.map(d => d.month);
+  const totals = data.map(d => d.total);
+
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [{
+        label: 'Monthly Spend (₹)',
+        data: totals,
+        borderWidth: 2,
+        fill: false,
+        tension: 0.2
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
+async function loadInvestments() {
+  const res = await fetch('/get_investments');
+  const data = await res.json();
+
+  const labels = data.map(d => d.asset);
+  const values = data.map(d => d.value);
+
+  new Chart(document.getElementById('investChart'), {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Investment Distribution',
+        data: values,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+}
+
+loadSummary();
+loadTrend();
+loadInvestments();
+</script>
+{% endblock %}
