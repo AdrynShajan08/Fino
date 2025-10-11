@@ -3,7 +3,8 @@ import sqlite3
 from datetime import datetime
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from services.db_handler import create_tables, add_expense, get_summary_data
+from services.db_handler import create_tables, get_summary_data
+# from services.db_handler import create_tables, add_expense, get_summary_data
 from services.analytics import monthly_summary
 
 
@@ -32,7 +33,6 @@ def get_db_connection():
 def remove_trailing_slash():
     if request.path != '/' and request.path.endswith('/'):
         return redirect(request.path[:-1])
-
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -70,20 +70,6 @@ def login():
             return redirect(url_for('dashboard'))
         return render_template('login.html', error="Invalid credentials")
     return render_template('login.html')
-#     if request.method != 'POST':
-#         return render_template('login.html')
-# +    username = request.form['username']
-# +    password = request.form['password']
-# +    conn = get_db_connection()
-# +    cur = conn.cursor()
-# +    cur.execute("SELECT * FROM users WHERE username = ?", (username,))
-# +    user = cur.fetchone()
-# +    conn.close()
-# +    if user and check_password_hash(user['password_hash'], password):
-# +        session['user_id'] = user['id']
-# +        session['username'] = user['username']
-# +        return redirect(url_for('dashboard'))
-# +    return render_template('login.html', error="Invalid credentials")
 
 @app.route('/logout')
 def logout():
@@ -144,31 +130,50 @@ def dashboard():
     return render_template('dashboard.html', username=session['username'])
 
 
-@app.route('/add_expense', methods=['GET', 'POST'])
+@app.route('/add_expense')
 @login_required
-def add_expense_route():
-    """Add a new expense (form or voice)."""
-    if request.method == 'POST':
-        data = request.get_json() or request.form
-        user_id = session['user_id']
-        amount = float(data.get('amount', 0))
-        category = data.get('category', 'other').lower()
-        description = data.get('description', '')
-        date = data.get('date') or datetime.now().strftime('%Y-%m-%d')
-
-        add_expense(DATABASE, user_id, category, amount, date, description)
-        return jsonify({'message': 'Expense added successfully!'})
+def add_expense_page():
+    """Expense page UI."""
     return render_template('add_expense.html')
 
-@app.route('/get_summary', methods=['GET'])
-@app.route('/get_summary')
+@app.route('/add_expense', methods=['POST'])
 @login_required
-def get_summary():
+def add_expense():
+    data = request.get_json() or request.form
+    user_id = session['user_id']
+    category = data.get('category')
+    amount = float(data.get('amount', 0))
+    date = data.get('date') or datetime.now().strftime('%Y-%m-%d')
+    description = data.get('description', '')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('INSERT INTO expenses (user_id, category, amount, date, description) VALUES (?, ?, ?, ?, ?)', 
+                (user_id, category, amount, date, description))
+    conn.commit()
+    conn.close()
+
+    return jsonify({'message': 'Expense added successfully!'})
+
+@app.route('/get_expenses')
+@login_required
+def get_expenses():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    user_id = session['user_id']
+    cur.execute('SELECT category, SUM(amount) as total FROM expenses WHERE user_id = ? GROUP BY category', [user_id])
+    data = cur.fetchall()
+    conn.close()
+    return jsonify([{'category': row['category'], 'total': row['total']} for row in data])
+
+@app.route('/get_expenses_full')
+@login_required
+def get_expenses_full():
     month = request.args.get('month')
     year = request.args.get('year')
 
-    user_id=session['user_id']
-    query = 'SELECT category, SUM(amount) as total FROM expenses WHERE user_id = ?'
+    user_id = session['user_id']
+    query = 'SELECT * FROM expenses WHERE user_id = ?'
     filters = []
     params = [user_id]
 
@@ -180,16 +185,116 @@ def get_summary():
         params.append(str(year))
 
     if filters:
-        query += ' WHERE ' + ' AND '.join(filters)
+        query += ' AND ' + ' AND '.join(filters)
+    query += ' ORDER BY date DESC'
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(query, params)
+    rows = cur.fetchall()
+    conn.close()
+
+    return jsonify([
+        {'id': row['id'], 'category': row['category'], 'amount': row['amount'], 
+         'date': row['date'], 'description': row['description']}
+        for row in rows
+    ])
+
+@app.route('/update_expense/<int:expense_id>', methods=['POST'])
+@login_required
+def update_expense(expense_id):
+    data = request.get_json() or request.form
+    category = data.get('category')
+    amount = float(data.get('amount', 0))
+    date = data.get('date') or datetime.now().strftime('%Y-%m-%d')
+    description = data.get('description', '')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    user_id = session['user_id']
+    cur.execute(
+        'UPDATE expenses SET category = ?, amount = ?, date = ?, description = ? WHERE id = ? AND user_id = ?',
+        (category, amount, date, description, expense_id, user_id)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Expense updated successfully!'})
+
+@app.route('/delete_expense/<int:expense_id>', methods=['DELETE'])
+@login_required
+def delete_expense(expense_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    user_id = session['user_id']
+    cur.execute('DELETE FROM expenses WHERE id = ? AND user_id = ?', (expense_id, user_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Expense deleted successfully!'})
+
+# @app.route('/get_summary')
+# @login_required
+# def get_summary():
+#     month = request.args.get('month')
+#     year = request.args.get('year')
+
+#     user_id = session['user_id']
+#     query = 'SELECT category, SUM(amount) as total FROM expenses WHERE user_id = ?'
+#     filters = []
+#     params = [user_id]
+
+#     if month and year:
+#         filters.append('strftime("%m", date) = ? AND strftime("%Y", date) = ?')
+#         params += [f"{int(month):02d}", str(year)]
+#     elif year:
+#         filters.append('strftime("%Y", date) = ?')
+#         params.append(str(year))
+
+#     if filters:
+#         query += ' AND ' + ' AND '.join(filters)
+#     query += ' GROUP BY category'
+
+#     conn = get_db_connection()
+#     cur = conn.cursor()
+#     cur.execute(query, params)
+#     data = cur.fetchall()
+#     conn.close()
+
+#     return jsonify([{'category': row['category'], 'total': row['total']} for row in data])
+
+@app.route('/get_summary')
+@login_required
+def get_summary():
+    user_id = session['user_id']
+    month = request.args.get('month')
+    year = request.args.get('year')
+
+    query = 'SELECT category, SUM(amount) as total FROM expenses WHERE user_id = ?'
+    params = [user_id]
+    filters = []
+
+    if month and year:
+        filters.append('strftime("%m", date) = ? AND strftime("%Y", date) = ?')
+        params += [f"{int(month):02d}", str(year)]
+    elif year:
+        filters.append('strftime("%Y", date) = ?')
+        params.append(str(year))
+
+    if filters:
+        query += ' AND ' + ' AND '.join(filters)
     query += ' GROUP BY category'
 
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(query, params)
-    data = cur.fetchall()
+    rows = cur.fetchall()
     conn.close()
 
-    return jsonify([{'category': row['category'], 'total': row['total']} for row in data])
+    labels = [row['category'] for row in rows]
+    values = [row['total'] for row in rows]
+
+    return jsonify({'labels': labels, 'values': values})
+
 
 @app.route('/get_monthly_trend')
 @login_required
@@ -294,8 +399,43 @@ def update_investment(investment_id):
     )
     conn.commit()
     conn.close()
-    return jsonify({'message': 'Investment updated successfully!'})
+    return jsonify({'message': 'Updated successfully!'})
 
+@app.route('/get_investment_trend')
+@login_required
+def get_investment_trend():
+    user_id = session['user_id']
+    period = request.args.get('period', 'month')  # 'month' or 'year'
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    if period == 'year':
+        # Group by year
+        cur.execute("""
+            SELECT strftime('%Y', date) as period, SUM(value) as total_value
+            FROM investments
+            WHERE user_id = ?
+            GROUP BY strftime('%Y', date)
+            ORDER BY period
+        """, (user_id,))
+    else:
+        # Default: group by month
+        cur.execute("""
+            SELECT strftime('%Y-%m', date) as period, SUM(value) as total_value
+            FROM investments
+            WHERE user_id = ?
+            GROUP BY strftime('%Y-%m', date)
+            ORDER BY period
+        """, (user_id,))
+
+    data = cur.fetchall()
+    conn.close()
+
+    labels = [row['period'] for row in data]
+    values = [row['total_value'] for row in data]
+
+    return jsonify({'labels': labels, 'values': values})
 
 @app.route('/delete_investment/<int:investment_id>', methods=['DELETE'])
 @login_required

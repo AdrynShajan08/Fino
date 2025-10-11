@@ -1,17 +1,11 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="container" style="max-width:600px;margin:auto;">
-  <h2 style="text-align:center;">➕ Add Expense</h2>
+  <h2 style="text-align:center;">💰 Add Expense</h2>
 
   <form id="expenseForm" style="margin-top:20px;">
-    <label>Date:</label><br>
-    <input type="date" name="date" required><br><br>
-
-    <label>Amount (₹):</label><br>
-    <input type="number" name="amount" step="0.01" required><br><br>
-
     <label>Category:</label><br>
-    <select name="category" required>
+    <select name="category" style="width:100%;padding:8px;margin-bottom:15px;" required>
       <option value="utilities">Utilities</option>
       <option value="rent">Rent</option>
       <option value="dining">Dining</option>
@@ -20,35 +14,152 @@
       <option value="charity">Charity</option>
       <option value="groceries">Groceries</option>
       <option value="shopping">Shopping</option>
-      <option value="other">Other</option>
-    </select><br><br>
+    </select><br>
+
+    <label>Amount (₹):</label><br>
+    <input type="number" name="amount" step="0.01" required><br><br>
+
+    <label>Date:</label><br>
+    <input type="date" name="date" required><br><br>
 
     <label>Description:</label><br>
-    <input type="text" name="description" placeholder="(optional)"><br><br>
+    <input type="text" name="description" placeholder="Optional"><br><br>
 
-    <button type="submit">💾 Save Expense</button>
-    <button type="button" id="voiceBtn">🎙️ Add by Voice</button>
+    <button type="submit">💾 Add Expense</button>
   </form>
 
-  <p id="status" style="text-align:center;margin-top:15px;color:green;"></p>
+  <p id="status" style="text-align:center;margin-top:10px;color:green;"></p>
+  <h3 style="text-align:center;margin-top:40px;">Your Expenses</h3>
+  <table border="1" cellpadding="8" style="margin:auto;margin-top:10px;width:90%;text-align:center;">
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Amount (₹)</th>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="expenseTable">
+      <tr><td colspan="4">Too much...taking a while</td></tr>
+    </tbody>
+  </table>
+
+    <!-- Edit Modal -->
+    <div id="editModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%; background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+      <div style="background:white;padding:20px;border-radius:8px;width:300px;">
+        <h3>Edit Expense</h3>
+        <form id="editForm">
+          <input type="hidden" name="id">
+          <label>Category:</label><br>
+          <input type="text" name="category" required><br><br>
+          
+          <label>Amount (₹):</label><br>
+          <input type="number" name="amount" step="0.01" required><br><br>
+          
+          <label>Date:</label><br>
+          <input type="date" name="date"><br><br>
+          
+          <label>Description:</label><br>
+          <input type="text" name="description"><br><br>
+          
+          <button type="submit">💾 Update</button>
+          <button type="button" onclick="closeModal()">❌ Cancel</button>
+        </form>
+      </div>
+    </div>
 </div>
 
 <script src="{{ url_for('static', filename='js/voice_input.js') }}"></script>
 <script>
-  document.getElementById("expenseForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData.entries());
 
-    const res = await fetch("/add_expense", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    });
+async function loadExpenses() {
+  const res = await fetch('/get_expenses_full');
+  const data = await res.json();
 
-    const json = await res.json();
-    document.getElementById("status").innerText = json.message;
-    e.target.reset();
+  const table = document.getElementById('expenseTable');
+  table.innerHTML = '';
+  data.forEach(item => {
+    table.innerHTML += `
+      <tr>
+        <td>${item.category}</td>
+        <td>${item.amount.toFixed(2)}</td>
+        <td>${item.date}</td>
+        <td>${item.description}</td>
+        <td>
+          <button onclick="openEdit(${item.id}, '${item.category}', ${item.amount}, '${item.date}', '${item.description}')">✏️</button>
+          <button onclick="deleteExpense(${item.id})">🗑️</button>
+        </td>
+      </tr>`;
   });
+}
+
+const channel = new BroadcastChannel("finance_updates");
+
+function broadcastUpdate() {
+  channel.postMessage("data_updated");
+}
+
+
+async function deleteInvestment(id) {
+  if (!confirm("Are you sure you want to delete this expense?")) return;
+  const res = await fetch(`/delete_expense/${id}`, { method: "DELETE" });
+  const data = await res.json();
+  alert(data.message);
+  loadExpenses();
+  broadcastUpdate();
+}
+
+function openEdit(id, category, amount, date, description) {
+  document.getElementById('editModal').style.display = 'flex';
+  const form = document.getElementById('editForm');
+  form.id.value = id;
+  form.category.value = category;
+  form.amount.value = amount;
+  form.date.value = date;
+  form.description.value = description;
+}
+
+function closeModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+document.getElementById("editForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData.entries());
+
+  const res = await fetch(`/update_investment/${data.id}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  alert(json.message);
+  closeModal();
+  loadInvestments();
+  broadcastUpdate();
+});
+
+async function addExpense(e) {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData.entries());
+
+  const res = await fetch("/add_expense", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+
+  const json = await res.json();
+  document.getElementById("status").innerText = json.message;
+  e.target.reset();
+  loadExpenses();
+  broadcastUpdate();
+}
+
+document.getElementById("expenseForm").addEventListener("submit", addExpense);
+loadExpenses();
 </script>
 {% endblock %}
