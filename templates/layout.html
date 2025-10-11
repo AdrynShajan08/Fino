@@ -119,7 +119,11 @@
     <a class="nav-link {% if '/investments' in request.path %}active{% endif %}" href="/investments">
       💹 <span class="nav-text">Investments</span>
     </a>
+    <a class="nav-link {% if '/profile' in request.path %}active{% endif %}" href="/profile">
+      👤 <span class="nav-text">Profile</span>
+    </a>
   </nav>
+
   <hr class="text-secondary">
   <div class="text-center">
     <span id="themeToggle" class="toggle-btn">🌙 Dark</span>
@@ -158,6 +162,15 @@
     localStorage.setItem('theme', dark ? 'dark' : 'light');
   });
 </script>
+
+<hr class="text-secondary">
+<div class="text-center">
+  {% if session.get('username') %}
+  <p class="mb-1">👤 {{ session['username'] }}</p>
+  <a href="/logout" class="btn btn-sm btn-outline-light">Logout</a>
+  {% endif %}
+</div>
+
 
 </body>
 </html>

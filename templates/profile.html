@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h3 class="mb-4">👤 Profile Settings</h3>
+
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card p-3 mb-3">
+        <h5 class="mb-3">💰 Financial Summary</h5>
+        <p><strong>Total Expenses:</strong> ₹{{ '%.2f'|format(total_expenses) }}</p>
+        <p><strong>Total Investments:</strong> ₹{{ '%.2f'|format(total_investments) }}</p>
+      </div>
+
+      <div class="card p-3">
+        <h5 class="mb-3">🔑 Update Password</h5>
+        {% if error %}
+          <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        {% if message %}
+          <div class="alert alert-success">{{ message }}</div>
+        {% endif %}
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label">Current Password</label>
+            <input type="password" name="current_password" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">New Password</label>
+            <input type="password" name="new_password" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirm New Password</label>
+            <input type="password" name="confirm_password" class="form-control" required>
+          </div>
+          <button class="btn btn-dark">Update Password</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
