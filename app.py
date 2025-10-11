@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect
 import sqlite3
 from datetime import datetime
 from services.db_handler import create_tables, add_expense, get_summary_data
@@ -15,13 +15,13 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+@app.before_request
+def remove_trailing_slash():
+    if request.path != '/' and request.path.endswith('/'):
+        return redirect(request.path[:-1])
+
 #routes
 @app.route('/')
-# def home():
-#     """Dashboard page showing spend summary."""
-#     summary = monthly_summary(DATABASE)
-#     return render_template('index.html', summary=summary)
-
 # @app.route('/dashboard')
 def dashboard():
     """Unified dashboard with expenses + investments."""
