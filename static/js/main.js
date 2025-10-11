@@ -1,5 +1,3 @@
-// main.js
-
 const expenseForm = document.getElementById("expenseForm");
 const messageDiv = document.getElementById("message");
 

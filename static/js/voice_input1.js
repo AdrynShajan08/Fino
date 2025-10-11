@@ -1,4 +1,3 @@
-// voice_input.js
 
 const startVoiceBtn = document.getElementById("startVoiceBtn");
 const voiceText = document.getElementById("voiceText");

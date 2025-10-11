@@ -1,0 +1,145 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container" style="max-width:600px;margin:auto;">
+  <h2 style="text-align:center;">💹 Investment Tracker</h2>
+
+  <form id="investmentForm" style="margin-top:20px;">
+    <label>Asset Type:</label><br>
+    <input type="text" name="asset" placeholder="e.g., Stocks, Mutual Fund" required><br><br>
+
+    <label>Value (₹):</label><br>
+    <input type="number" name="value" step="0.01" required><br><br>
+
+    <label>Date:</label><br>
+    <input type="date" name="date"><br><br>
+
+    <button type="submit">💾 Save Investment</button>
+  </form>
+
+  <p id="status" style="text-align:center;margin-top:10px;color:green;"></p>
+  <h3 style="text-align:center;margin-top:40px;">Your Investments</h3>
+<table border="1" cellpadding="8" style="margin:auto;margin-top:10px;width:90%;text-align:center;">
+  <thead>
+    <tr>
+      <th>Asset</th>
+      <th>Value (₹)</th>
+      <th>Date</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="investmentTable">
+    <tr><td colspan="4">Loading...</td></tr>
+  </tbody>
+</table>
+
+<!-- Edit Modal -->
+<div id="editModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+     background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+  <div style="background:white;padding:20px;border-radius:8px;width:300px;">
+    <h3>Edit Investment</h3>
+    <form id="editForm">
+      <input type="hidden" name="id">
+      <label>Asset:</label><br>
+      <input type="text" name="asset" required><br><br>
+
+      <label>Value (₹):</label><br>
+      <input type="number" name="value" step="0.01" required><br><br>
+
+      <label>Date:</label><br>
+      <input type="date" name="date"><br><br>
+
+      <button type="submit">💾 Update</button>
+      <button type="button" onclick="closeModal()">❌ Cancel</button>
+    </form>
+  </div>
+</div>
+</div>
+
+<script>
+async function loadInvestments() {
+  const res = await fetch('/get_investments_full');
+  const data = await res.json();
+
+  const table = document.getElementById('investmentTable');
+  table.innerHTML = '';
+  data.forEach(item => {
+    table.innerHTML += `
+      <tr>
+        <td>${item.asset}</td>
+        <td>${item.value.toFixed(2)}</td>
+        <td>${item.date}</td>
+        <td>
+          <button onclick="openEdit(${item.id}, '${item.asset}', ${item.value}, '${item.date}')">✏️</button>
+          <button onclick="deleteInvestment(${item.id})">🗑️</button>
+        </td>
+      </tr>`;
+  });
+}
+
+const channel = new BroadcastChannel("finance_updates");
+
+function broadcastUpdate() {
+  channel.postMessage("data_updated");
+}
+
+async function deleteInvestment(id) {
+  if (!confirm("Are you sure you want to delete this investment?")) return;
+  const res = await fetch(`/delete_investment/${id}`, { method: "DELETE" });
+  const data = await res.json();
+  alert(data.message);
+  loadInvestments();
+  broadcastUpdate();
+}
+
+function openEdit(id, asset, value, date) {
+  document.getElementById('editModal').style.display = 'flex';
+  const form = document.getElementById('editForm');
+  form.id.value = id;
+  form.asset.value = asset;
+  form.value.value = value;
+  form.date.value = date;
+}
+
+function closeModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+document.getElementById("editForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData.entries());
+
+  const res = await fetch(`/update_investment/${data.id}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  alert(json.message);
+  closeModal();
+  loadInvestments();
+  broadcastUpdate();
+});
+
+async function addInvestment(e) {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData.entries());
+
+  const res = await fetch("/add_investment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+
+  const json = await res.json();
+  document.getElementById("status").innerText = json.message;
+  e.target.reset();
+  loadInvestments();
+  broadcastUpdate();
+}
+
+document.getElementById("investmentForm").addEventListener("submit", addInvestment);
+loadInvestments();
+</script>
+{% endblock %}

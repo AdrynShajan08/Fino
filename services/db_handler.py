@@ -3,6 +3,8 @@ import sqlite3
 def create_tables(db_path):
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
+
+    # Expenses table
     cur.execute('''
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -12,6 +14,17 @@ def create_tables(db_path):
             description TEXT
         )
     ''')
+
+    # Investments table
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS investments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset TEXT,
+            value REAL,
+            date TEXT
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -30,3 +43,5 @@ def get_summary_data(db_path):
     data = cur.fetchall()
     conn.close()
     return [{'category': row[0], 'total': row[1]} for row in data]
+
+
