@@ -4,37 +4,50 @@ def create_tables(db_path):
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    # Expenses table
+    # Users table
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL
+        )
+    ''')
+
+    # Expenses (linked to user)
     cur.execute('''
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT,
+            user_id INTEGER,
             category TEXT,
             amount REAL,
-            description TEXT
+            date TEXT,
+            description TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
 
-    # Investments table
+    # Investments (linked to user)
     cur.execute('''
         CREATE TABLE IF NOT EXISTS investments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             asset TEXT,
             value REAL,
-            date TEXT
+            date TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
 
     conn.commit()
     conn.close()
 
-def add_expense(db_path, date, category, amount, description):
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute('INSERT INTO expenses (date, category, amount, description) VALUES (?, ?, ?, ?)',
-                (date, category, amount, description))
-    conn.commit()
-    conn.close()
+# def add_expense(db_path, user_id, category, amount, date, description):
+#     conn = sqlite3.connect(db_path)
+#     cur = conn.cursor()
+#     cur.execute('INSERT INTO expenses (user_id, category, amount, date, description) VALUES (?, ?, ?, ?, ?)',
+#                 (user_id, category, amount, date, description))
+#     conn.commit()
+#     conn.close()
 
 def get_summary_data(db_path):
     conn = sqlite3.connect(db_path)

@@ -18,41 +18,40 @@
 
   <p id="status" style="text-align:center;margin-top:10px;color:green;"></p>
   <h3 style="text-align:center;margin-top:40px;">Your Investments</h3>
-<table border="1" cellpadding="8" style="margin:auto;margin-top:10px;width:90%;text-align:center;">
-  <thead>
-    <tr>
-      <th>Asset</th>
-      <th>Value (₹)</th>
-      <th>Date</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody id="investmentTable">
-    <tr><td colspan="4">Loading...</td></tr>
-  </tbody>
-</table>
+  <table border="1" cellpadding="8" style="margin:auto;margin-top:10px;width:90%;text-align:center;">
+    <thead>
+      <tr>
+        <th>Asset</th>
+        <th>Value (₹)</th>
+        <th>Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="investmentTable">
+      <tr><td colspan="4">Loading...</td></tr>
+    </tbody>
+  </table>
 
-<!-- Edit Modal -->
-<div id="editModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
-     background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
-  <div style="background:white;padding:20px;border-radius:8px;width:300px;">
-    <h3>Edit Investment</h3>
-    <form id="editForm">
-      <input type="hidden" name="id">
-      <label>Asset:</label><br>
-      <input type="text" name="asset" required><br><br>
-
-      <label>Value (₹):</label><br>
-      <input type="number" name="value" step="0.01" required><br><br>
-
-      <label>Date:</label><br>
-      <input type="date" name="date"><br><br>
-
-      <button type="submit">💾 Update</button>
-      <button type="button" onclick="closeModal()">❌ Cancel</button>
-    </form>
-  </div>
-</div>
+    <!-- Edit Modal -->
+    <div id="editModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%; background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+      <div style="background:white;padding:20px;border-radius:8px;width:300px;">
+        <h3>Edit Investment</h3>
+        <form id="editForm">
+          <input type="hidden" name="id">
+          <label>Asset:</label><br>
+          <input type="text" name="asset" required><br><br>
+          
+          <label>Value (₹):</label><br>
+          <input type="number" name="value" step="0.01" required><br><br>
+          
+          <label>Date:</label><br>
+          <input type="date" name="date"><br><br>
+          
+          <button type="submit">💾 Update</button>
+          <button type="button" onclick="closeModal()">❌ Cancel</button>
+        </form>
+      </div>
+    </div>
 </div>
 
 <script>
