@@ -1,0 +1,22 @@
+### Users Table
+- id: Primary key
+- username: Unique username
+- password_hash: Hashed password
+- created_at: Account creation timestamp
+
+### Expenses Table
+- id: Primary key
+- user_id: Foreign key to users
+- category: Expense category
+- amount: Expense amount
+- date: Date of expense
+- description: Optional description
+- created_at: Record creation timestamp
+
+### Investments Table
+- id: Primary key
+- user_id: Foreign key to users
+- asset: Investment asset name
+- value: Investment value
+- date: Date of investment
+- created_at: Record creation timestamp

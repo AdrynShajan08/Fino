@@ -8,11 +8,41 @@
     <div class="col-md-6">
       <div class="card p-3">
         <h5 class="mb-3">💸 Spending by Category</h5>
-        <canvas id="expenseChart" height="200"></canvas>
+        <div id="expenseChartContainer" style="position:relative;height:250px;">
+          <canvas id="expenseChart"></canvas>
+          <div id="expenseLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
+            Loading...
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Investment Trend -->
+    <!-- Investment Distribution -->
+    <div class="col-md-6">
+      <div class="card p-3">
+        <h5 class="mb-3">💹 Investment Distribution</h5>
+        <div id="investmentChartContainer" style="position:relative;height:250px;">
+          <canvas id="investmentChart"></canvas>
+          <div id="investmentLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
+            Loading...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mt-2">
+    <!-- Monthly Expense Trend -->
+    <div class="col-md-6">
+      <div class="card p-3">
+        <h5 class="mb-3">📈 Monthly Expense Trend</h5>
+        <div style="position:relative;height:250px;">
+          <canvas id="expenseTrendChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Investment Growth Trend -->
     <div class="col-md-6">
       <div class="card p-3">
         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -22,7 +52,37 @@
             <option value="year">Yearly</option>
           </select>
         </div>
-        <canvas id="investmentTrendChart" height="200"></canvas>
+        <div style="position:relative;height:250px;">
+          <canvas id="investmentTrendChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="row g-4 mt-2">
+    <div class="col-md-3">
+      <div class="card p-3 text-center">
+        <h6 class="text-muted">Total Expenses</h6>
+        <h3 id="totalExpenses" class="text-danger">₹0</h3>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3 text-center">
+        <h6 class="text-muted">Total Investments</h6>
+        <h3 id="totalInvestments" class="text-success">₹0</h3>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3 text-center">
+        <h6 class="text-muted">Expense Categories</h6>
+        <h3 id="expenseCategories">0</h3>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3 text-center">
+        <h6 class="text-muted">Investment Assets</h6>
+        <h3 id="investmentAssets">0</h3>
       </div>
     </div>
   </div>
@@ -30,73 +90,289 @@
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
 <script>
 let expenseChart;
 let investmentChart;
+let expenseTrendChart;
+let investmentTrendChart;
 
-function loadExpenseSummary() {
-  fetch('/get_summary')
-    .then(res => res.json())
-    .then(data => {
-      const ctx = document.getElementById('expenseChart');
-      if (expenseChart) expenseChart.destroy();
-      expenseChart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-          labels: data.labels,
-          datasets: [{
-            data: data.values,
-            backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#20c997', '#6f42c1', '#fd7e14']
-          }]
-        },
-        options: {
-          plugins: {
-            legend: { position: 'bottom' }
+// Chart color schemes
+const expenseColors = ['#dc3545', '#fd7e14', '#ffc107', '#20c997', '#0dcaf0', '#6610f2', '#d63384'];
+const investmentColors = ['#198754', '#0d6efd', '#20c997', '#6f42c1', '#0dcaf0', '#fd7e14', '#ffc107'];
+
+/**
+ * Load expense summary
+ */
+async function loadExpenseSummary() {
+  try {
+    document.getElementById('expenseLoading').style.display = 'block';
+    
+    const data = await ApiClient.get('/get_summary');
+    
+    document.getElementById('expenseLoading').style.display = 'none';
+    
+    if (!data.labels || data.labels.length === 0) {
+      document.getElementById('expenseChartContainer').innerHTML = 
+        '<p class="text-center text-muted mt-5">No expense data available</p>';
+      return;
+    }
+    
+    const ctx = document.getElementById('expenseChart');
+    if (expenseChart) expenseChart.destroy();
+    
+    expenseChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          data: data.values,
+          backgroundColor: expenseColors,
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return context.label + ': ' + formatCurrency(context.parsed);
+              }
+            }
           }
         }
-      });
+      }
     });
+    
+    // Update stats
+    const total = data.values.reduce((a, b) => a + b, 0);
+    document.getElementById('totalExpenses').textContent = formatCurrency(total);
+    document.getElementById('expenseCategories').textContent = data.labels.length;
+    
+  } catch (error) {
+    console.error('Failed to load expense summary:', error);
+    document.getElementById('expenseLoading').textContent = 'Failed to load';
+  }
 }
 
-function loadInvestmentTrend(period = 'month') {
-  fetch(`/get_investment_trend?period=${period}`)
-    .then(res => res.json())
-    .then(data => {
-      const ctx = document.getElementById('investmentTrendChart');
-      if (investmentChart) investmentChart.destroy();
-      investmentChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: data.labels,
-          datasets: [{
-            label: 'Total Investments (₹)',
-            data: data.values,
-            borderColor: '#0d6efd',
-            tension: 0.3,
-            fill: false,
-            pointRadius: 4,
-            pointBackgroundColor: '#0d6efd'
-          }]
+/**
+ * Load investment summary
+ */
+async function loadInvestmentSummary() {
+  try {
+    document.getElementById('investmentLoading').style.display = 'block';
+    
+    const data = await ApiClient.get('/get_investments');
+    
+    document.getElementById('investmentLoading').style.display = 'none';
+    
+    if (!data || data.length === 0) {
+      document.getElementById('investmentChartContainer').innerHTML = 
+        '<p class="text-center text-muted mt-5">No investment data available</p>';
+      return;
+    }
+    
+    const labels = data.map(d => d.asset);
+    const values = data.map(d => d.value);
+    
+    const ctx = document.getElementById('investmentChart');
+    if (investmentChart) investmentChart.destroy();
+    
+    investmentChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: values,
+          backgroundColor: investmentColors,
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return context.label + ': ' + formatCurrency(context.parsed);
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    // Update stats
+    const total = values.reduce((a, b) => a + b, 0);
+    document.getElementById('totalInvestments').textContent = formatCurrency(total);
+    document.getElementById('investmentAssets').textContent = labels.length;
+    
+  } catch (error) {
+    console.error('Failed to load investment summary:', error);
+    document.getElementById('investmentLoading').textContent = 'Failed to load';
+  }
+}
+
+/**
+ * Load expense trend
+ */
+async function loadExpenseTrend() {
+  try {
+    const data = await ApiClient.get('/get_monthly_trend');
+    
+    if (!data || data.length === 0) {
+      return;
+    }
+    
+    const months = data.map(d => d.month);
+    const totals = data.map(d => d.total);
+    
+    const ctx = document.getElementById('expenseTrendChart');
+    if (expenseTrendChart) expenseTrendChart.destroy();
+    
+    expenseTrendChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [{
+          label: 'Monthly Spending (₹)',
+          data: totals,
+          borderColor: '#dc3545',
+          backgroundColor: 'rgba(220, 53, 69, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: '#dc3545'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return 'Spent: ' + formatCurrency(context.parsed.y);
+              }
+            }
+          }
         },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: true }
+        scales: {
+          y: { 
+            beginAtZero: true,
+            title: { display: true, text: 'Amount (₹)' }
           },
-          scales: {
-            x: { title: { display: true, text: period === 'year' ? 'Year' : 'Month' } },
-            y: { title: { display: true, text: 'Investment Value (₹)' } }
+          x: {
+            title: { display: true, text: 'Month' }
           }
         }
-      });
+      }
     });
+  } catch (error) {
+    console.error('Failed to load expense trend:', error);
+  }
 }
 
-document.getElementById('trendPeriod').addEventListener('change', e => {
+/**
+ * Load investment trend
+ */
+async function loadInvestmentTrend(period = 'month') {
+  try {
+    const data = await ApiClient.get(`/get_investment_trend?period=${period}`);
+    
+    if (!data.labels || data.labels.length === 0) {
+      return;
+    }
+    
+    const ctx = document.getElementById('investmentTrendChart');
+    if (investmentTrendChart) investmentTrendChart.destroy();
+    
+    investmentTrendChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          label: 'Total Investments (₹)',
+          data: data.values,
+          borderColor: '#198754',
+          backgroundColor: 'rgba(25, 135, 84, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: '#198754'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return 'Value: ' + formatCurrency(context.parsed.y);
+              }
+            }
+          }
+        },
+        scales: {
+          x: { 
+            title: { display: true, text: period === 'year' ? 'Year' : 'Month' }
+          },
+          y: { 
+            beginAtZero: true,
+            title: { display: true, text: 'Investment Value (₹)' }
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Failed to load investment trend:', error);
+  }
+}
+
+/**
+ * Load all dashboard data
+ */
+async function loadDashboard() {
+  await Promise.all([
+    loadExpenseSummary(),
+    loadInvestmentSummary(),
+    loadExpenseTrend(),
+    loadInvestmentTrend()
+  ]);
+}
+
+// Event listeners
+document.getElementById('trendPeriod').addEventListener('change', (e) => {
   loadInvestmentTrend(e.target.value);
 });
 
-loadExpenseSummary();
-loadInvestmentTrend();
+// Listen for updates from other tabs
+onUpdate((data) => {
+  console.log('Dashboard received update:', data.type);
+  if (data.type === 'expense') {
+    loadExpenseSummary();
+    loadExpenseTrend();
+  } else if (data.type === 'investment') {
+    loadInvestmentSummary();
+    loadInvestmentTrend();
+  } else {
+    loadDashboard();
+  }
+});
+
+// Initial load
+loadDashboard();
 </script>
 {% endblock %}

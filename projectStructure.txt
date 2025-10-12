@@ -1,0 +1,33 @@
+Project Structure
+
+```
+fino/
+├── app.py                      # Main application file
+├── config.py                   # Configuration management
+├── requirements.txt            # Python dependencies
+├── .env.example               # Environment variables template
+├── services/
+│   ├── db_handler.py          # Database initialization
+│   ├── expense_service.py     # Expense business logic
+│   └── investment_service.py  # Investment business logic
+├── utils/
+│   ├── validators.py          # Input validation utilities
+│   ├── cache.py               # Caching system
+│   └── rate_limiter.py        # Rate limiting
+├── static/
+│   ├── css/
+│   │   └── style.css          # Custom styles
+│   └── js/
+│       ├── utils.js           # Frontend utilities
+│       ├── main.js            # Legacy main script
+│       └── voice_input.js     # Voice input functionality
+├── templates/
+│   ├── layout.html            # Base template
+│   ├── dashboard.html         # Dashboard page
+│   ├── add_expense.html       # Expense management
+│   ├── investments.html       # Investment management
+│   ├── profile.html           # User profile
+│   ├── login.html             # Login page
+│   └── register.html          # Registration page
+└── logs/                       # Application logs (auto-created)
+```

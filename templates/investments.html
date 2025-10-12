@@ -1,25 +1,50 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="container" style="max-width:600px;margin:auto;">
+<div class="container" style="max-width:800px;margin:auto;">
   <h2 style="text-align:center;">💹 Investment Tracker</h2>
 
   <form id="investmentForm" style="margin-top:20px;">
     <label>Asset Type:</label><br>
-    <input type="text" name="asset" placeholder="e.g., Stocks, Mutual Fund" required><br><br>
+    <input type="text" name="asset" id="asset" class="form-control mb-2" placeholder="e.g., Stocks, Mutual Fund" required><br>
 
     <label>Value (₹):</label><br>
-    <input type="number" name="value" step="0.01" required><br><br>
+    <input type="number" name="value" id="value" class="form-control mb-2" step="0.01" min="0" required><br>
 
     <label>Date:</label><br>
-    <input type="date" name="date"><br><br>
+    <input type="date" name="date" id="date" class="form-control mb-3" required><br>
 
-    <button type="submit">💾 Save Investment</button>
+    <button type="submit" class="btn btn-primary">💾 Save Investment</button>
   </form>
 
   <p id="status" style="text-align:center;margin-top:10px;color:green;"></p>
+
+  <!-- Filters -->
+  <div style="margin-top:30px;text-align:center;">
+    <label>Filter by: </label>
+    <select id="filterMonth" style="padding:5px;">
+      <option value="">All Months</option>
+      <option value="01">January</option>
+      <option value="02">February</option>
+      <option value="03">March</option>
+      <option value="04">April</option>
+      <option value="05">May</option>
+      <option value="06">June</option>
+      <option value="07">July</option>
+      <option value="08">August</option>
+      <option value="09">September</option>
+      <option value="10">October</option>
+      <option value="11">November</option>
+      <option value="12">December</option>
+    </select>
+    <select id="filterYear" style="padding:5px;">
+      <option value="">All Years</option>
+    </select>
+    <button onclick="applyFilters()" class="btn btn-sm btn-secondary">Apply</button>
+  </div>
+
   <h3 style="text-align:center;margin-top:40px;">Your Investments</h3>
-  <table border="1" cellpadding="8" style="margin:auto;margin-top:10px;width:90%;text-align:center;">
-    <thead>
+  <table class="table table-striped table-hover" style="margin:auto;margin-top:10px;width:100%;">
+    <thead class="table-dark">
       <tr>
         <th>Asset</th>
         <th>Value (₹)</th>
@@ -28,117 +53,216 @@
       </tr>
     </thead>
     <tbody id="investmentTable">
-      <tr><td colspan="4">Loading...</td></tr>
+      <tr><td colspan="4" class="text-center">Loading...</td></tr>
     </tbody>
   </table>
 
-    <!-- Edit Modal -->
-    <div id="editModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%; background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
-      <div style="background:white;padding:20px;border-radius:8px;width:300px;">
-        <h3>Edit Investment</h3>
-        <form id="editForm">
-          <input type="hidden" name="id">
-          <label>Asset:</label><br>
-          <input type="text" name="asset" required><br><br>
-          
-          <label>Value (₹):</label><br>
-          <input type="number" name="value" step="0.01" required><br><br>
-          
-          <label>Date:</label><br>
-          <input type="date" name="date"><br><br>
-          
-          <button type="submit">💾 Update</button>
-          <button type="button" onclick="closeModal()">❌ Cancel</button>
-        </form>
-      </div>
+  <!-- Edit Modal -->
+  <div id="editModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:9999;">
+    <div style="background:white;padding:20px;border-radius:8px;width:400px;max-width:90%;">
+      <h3>Edit Investment</h3>
+      <form id="editForm">
+        <input type="hidden" name="id" id="editId">
+        
+        <label>Asset:</label><br>
+        <input type="text" name="asset" id="editAsset" class="form-control mb-2" required><br>
+        
+        <label>Value (₹):</label><br>
+        <input type="number" name="value" id="editValue" class="form-control mb-2" step="0.01" min="0" required><br>
+        
+        <label>Date:</label><br>
+        <input type="date" name="date" id="editDate" class="form-control mb-3" required><br>
+        
+        <button type="submit" class="btn btn-primary">💾 Update</button>
+        <button type="button" onclick="closeModal()" class="btn btn-secondary">❌ Cancel</button>
+      </form>
     </div>
+  </div>
 </div>
 
+<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
 <script>
-async function loadInvestments() {
-  const res = await fetch('/get_investments_full');
-  const data = await res.json();
+// Set today's date as default
+document.getElementById('date').valueAsDate = new Date();
 
-  const table = document.getElementById('investmentTable');
-  table.innerHTML = '';
-  data.forEach(item => {
-    table.innerHTML += `
-      <tr>
-        <td>${item.asset}</td>
-        <td>${item.value.toFixed(2)}</td>
+// Populate year filter
+const yearSelect = document.getElementById('filterYear');
+const currentYear = new Date().getFullYear();
+for (let year = currentYear; year >= currentYear - 5; year--) {
+  const option = document.createElement('option');
+  option.value = year;
+  option.textContent = year;
+  yearSelect.appendChild(option);
+}
+
+/**
+ * Load investments from server
+ */
+async function loadInvestments(month = '', year = '') {
+  try {
+    let url = '/get_investments_full';
+    const params = new URLSearchParams();
+    if (month) params.append('month', month);
+    if (year) params.append('year', year);
+    if (params.toString()) url += '?' + params.toString();
+    
+    const data = await ApiClient.get(url);
+    
+    const table = document.getElementById('investmentTable');
+    table.innerHTML = '';
+    
+    if (data.length === 0) {
+      table.innerHTML = '<tr><td colspan="4" class="text-center">No investments found</td></tr>';
+      return;
+    }
+    
+    data.forEach(item => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${escapeHtml(item.asset)}</td>
+        <td>${formatCurrency(item.value)}</td>
         <td>${item.date}</td>
         <td>
-          <button onclick="openEdit(${item.id}, '${item.asset}', ${item.value}, '${item.date}')">✏️</button>
-          <button onclick="deleteInvestment(${item.id})">🗑️</button>
+          <button onclick="openEdit(${item.id}, '${escapeHtml(item.asset)}', ${item.value}, '${item.date}')" 
+                  class="btn btn-sm btn-warning">✏️</button>
+          <button onclick="deleteInvestment(${item.id})" 
+                  class="btn btn-sm btn-danger">🗑️</button>
         </td>
-      </tr>`;
-  });
+      `;
+      table.appendChild(row);
+    });
+  } catch (error) {
+    console.error('Failed to load investments:', error);
+    document.getElementById('investmentTable').innerHTML = 
+      '<tr><td colspan="4" class="text-center text-danger">Failed to load investments</td></tr>';
+  }
 }
 
-const channel = new BroadcastChannel("finance_updates");
-
-function broadcastUpdate() {
-  channel.postMessage("data_updated");
+/**
+ * Apply filters
+ */
+function applyFilters() {
+  const month = document.getElementById('filterMonth').value;
+  const year = document.getElementById('filterYear').value;
+  loadInvestments(month, year);
 }
 
+/**
+ * Add investment
+ */
+async function addInvestment(e) {
+  e.preventDefault();
+  
+  if (!validateForm(e.target)) return;
+  
+  try {
+    const formData = new FormData(e.target);
+    const data = formDataToObject(formData);
+    
+    const response = await ApiClient.post('/add_investment', data);
+    
+    showToast(response.message, 'success');
+    e.target.reset();
+    document.getElementById('date').valueAsDate = new Date();
+    
+    loadInvestments();
+    broadcastUpdate('investment');
+  } catch (error) {
+    console.error('Failed to add investment:', error);
+  }
+}
+
+/**
+ * Delete investment
+ */
 async function deleteInvestment(id) {
-  if (!confirm("Are you sure you want to delete this investment?")) return;
-  const res = await fetch(`/delete_investment/${id}`, { method: "DELETE" });
-  const data = await res.json();
-  alert(data.message);
-  loadInvestments();
-  broadcastUpdate();
+  if (!await confirmAction('Are you sure you want to delete this investment?')) return;
+  
+  try {
+    const response = await ApiClient.delete(`/delete_investment/${id}`);
+    showToast(response.message, 'success');
+    loadInvestments();
+    broadcastUpdate('investment');
+  } catch (error) {
+    console.error('Failed to delete investment:', error);
+  }
 }
 
+/**
+ * Open edit modal
+ */
 function openEdit(id, asset, value, date) {
   document.getElementById('editModal').style.display = 'flex';
-  const form = document.getElementById('editForm');
-  form.id.value = id;
-  form.asset.value = asset;
-  form.value.value = value;
-  form.date.value = date;
+  document.getElementById('editId').value = id;
+  document.getElementById('editAsset').value = unescapeHtml(asset);
+  document.getElementById('editValue').value = value;
+  document.getElementById('editDate').value = date;
 }
 
+/**
+ * Close edit modal
+ */
 function closeModal() {
   document.getElementById('editModal').style.display = 'none';
 }
 
-document.getElementById("editForm").addEventListener("submit", async (e) => {
+/**
+ * Update investment
+ */
+async function updateInvestment(e) {
   e.preventDefault();
-  const formData = new FormData(e.target);
-  const data = Object.fromEntries(formData.entries());
-
-  const res = await fetch(`/update_investment/${data.id}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
-  });
-  const json = await res.json();
-  alert(json.message);
-  closeModal();
-  loadInvestments();
-  broadcastUpdate();
-});
-
-async function addInvestment(e) {
-  e.preventDefault();
-  const formData = new FormData(e.target);
-  const data = Object.fromEntries(formData.entries());
-
-  const res = await fetch("/add_investment", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
-  });
-
-  const json = await res.json();
-  document.getElementById("status").innerText = json.message;
-  e.target.reset();
-  loadInvestments();
-  broadcastUpdate();
+  
+  if (!validateForm(e.target)) return;
+  
+  try {
+    const formData = new FormData(e.target);
+    const data = formDataToObject(formData);
+    const id = data.id;
+    delete data.id;
+    
+    const response = await ApiClient.post(`/update_investment/${id}`, data);
+    showToast(response.message, 'success');
+    
+    closeModal();
+    loadInvestments();
+    broadcastUpdate('investment');
+  } catch (error) {
+    console.error('Failed to update investment:', error);
+  }
 }
 
-document.getElementById("investmentForm").addEventListener("submit", addInvestment);
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Unescape HTML
+ */
+function unescapeHtml(html) {
+  if (!html) return '';
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent;
+}
+
+// Event listeners
+document.getElementById('investmentForm').addEventListener('submit', addInvestment);
+document.getElementById('editForm').addEventListener('submit', updateInvestment);
+
+// Listen for updates from other tabs
+onUpdate((data) => {
+  if (data.type === 'investment' || data.type === 'general') {
+    loadInvestments();
+  }
+});
+
+// Initial load
 loadInvestments();
 </script>
 {% endblock %}
