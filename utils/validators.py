@@ -1,147 +1,89 @@
 """
-Input validation utilities for Fino application.
+Input validation utilities for Iknow application.
 """
+
 from datetime import datetime
 from flask import jsonify
+
 
 def validate_numeric(value, field_name="value", min_val=0, max_val=None):
     """
     Validate and convert numeric input.
-    
-    Args:
-        value: The value to validate
-        field_name: Name of the field for error messages
-        min_val: Minimum allowed value
-        max_val: Maximum allowed value
-    
-    Returns:
-        float: The validated numeric value
-    
-    Raises:
-        ValueError: If validation fails
     """
     try:
         num = float(value)
-        if num < min_val:
-            raise ValueError(f"{field_name} must be >= {min_val}")
-        if max_val is not None and num > max_val:
-            raise ValueError(f"{field_name} must be <= {max_val}")
-        return num
-    except (ValueError, TypeError) as e:
-        if "could not convert" in str(e) or "invalid literal" in str(e):
-            raise ValueError(f"Invalid {field_name}")
-        raise
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid {field_name}")
+
+    if num < min_val:
+        raise ValueError(f"{field_name} must be >= {min_val}")
+    if max_val is not None and num > max_val:
+        raise ValueError(f"{field_name} must be <= {max_val}")
+
+    return num
+
 
 def validate_date(date_str):
     """
-    Validate date format.
-    
-    Args:
-        date_str: Date string in YYYY-MM-DD format, or None for today
-    
-    Returns:
-        str: Validated date string in YYYY-MM-DD format
-    
-    Raises:
-        ValueError: If date format is invalid
+    Validate date format (YYYY-MM-DD). Returns today's date if None/empty.
     """
     if not date_str:
         return datetime.now().strftime('%Y-%m-%d')
     try:
         datetime.strptime(date_str, '%Y-%m-%d')
-        return date_str
     except ValueError:
         raise ValueError("Invalid date format. Use YYYY-MM-DD")
+    return date_str
 
-def validate_month_year(month, year):
+
+def validate_month_year(month=None, year=None):
     """
-    Validate month and year parameters.
-    
-    Args:
-        month: Month value (1-12) or None
-        year: Year value (2000-2100) or None
-    
-    Returns:
-        tuple: (validated_month, validated_year) as strings
-    
-    Raises:
-        ValueError: If validation fails
+    Validate month (1-12) and year (2000-2100).
+    Returns tuple of strings: (month, year)
     """
-    validated_month = None
-    validated_year = None
-    
-    if month:
+    def _validate_int(value, field, min_v, max_v):
         try:
-            month_int = int(month)
-            if not 1 <= month_int <= 12:
-                raise ValueError("Month must be between 1 and 12")
-            validated_month = f"{month_int:02d}"
+            num = int(value)
+            if not min_v <= num <= max_v:
+                raise ValueError(f"{field.capitalize()} must be between {min_v} and {max_v}")
+            return num
         except (ValueError, TypeError):
-            raise ValueError("Invalid month value")
-    
-    if year:
-        try:
-            year_int = int(year)
-            if not 2000 <= year_int <= 2100:
-                raise ValueError("Year must be between 2000 and 2100")
-            validated_year = str(year_int)
-        except (ValueError, TypeError):
-            raise ValueError("Invalid year value")
-    
+            raise ValueError(f"Invalid {field} value")
+
+    validated_month = f"{_validate_int(month, 'month', 1, 12):02d}" if month else None
+    validated_year = str(_validate_int(year, 'year', 2000, 2100)) if year else None
+
     return validated_month, validated_year
+
 
 def validate_string(value, field_name="field", min_length=1, max_length=200):
     """
-    Validate string input.
-    
-    Args:
-        value: The string to validate
-        field_name: Name of the field for error messages
-        min_length: Minimum allowed length
-        max_length: Maximum allowed length
-    
-    Returns:
-        str: The validated and stripped string
-    
-    Raises:
-        ValueError: If validation fails
+    Validate non-empty string input with length constraints.
     """
-    if not value:
+    if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} is required")
-    
-    value = str(value).strip()
-    
-    if len(value) < min_length:
+
+    value = value.strip()
+    length = len(value)
+
+    if length < min_length:
         raise ValueError(f"{field_name} must be at least {min_length} characters")
-    if len(value) > max_length:
+    if length > max_length:
         raise ValueError(f"{field_name} must not exceed {max_length} characters")
-    
+
     return value
+
 
 def error_response(message, status_code=400):
     """
-    Create standardized error response.
-    
-    Args:
-        message: Error message
-        status_code: HTTP status code
-    
-    Returns:
-        tuple: (jsonified response, status_code)
+    Create standardized JSON error response.
     """
     return jsonify({'error': str(message)}), status_code
 
+
 def success_response(message, data=None, status_code=200):
     """
-    Create standardized success response.
-    
-    Args:
-        message: Success message
-        data: Optional data to include
-        status_code: HTTP status code
-    
-    Returns:
-        tuple: (jsonified response, status_code)
+    Create standardized JSON success response.
     """
     response = {'message': message}
     if data is not None:
